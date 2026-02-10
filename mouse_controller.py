@@ -9,6 +9,7 @@ from Quartz import (
     kCGEventMouseMoved,
     kCGEventLeftMouseDown,
     kCGEventLeftMouseUp,
+    kCGEventLeftMouseDragged,
     kCGEventRightMouseDown,
     kCGEventRightMouseUp,
     kCGHIDEventTap,
@@ -23,6 +24,11 @@ class MouseController:
     def __init__(self):
         self._last_pos = (0, 0)
         self._dragging = False
+
+    def reset(self):
+        """Release any held buttons and reset state."""
+        if self._dragging:
+            self.drag_end()
 
     def move(self, x, y):
         """Move the mouse cursor to absolute screen coordinates."""
@@ -51,13 +57,10 @@ class MouseController:
         """Move while holding left mouse button (drag)."""
         point = Quartz.CGPoint(x, y)
         if not self._dragging:
-            # Press down to start drag
             down = CGEventCreateMouseEvent(None, kCGEventLeftMouseDown, point, kCGMouseButtonLeft)
             CGEventPost(kCGHIDEventTap, down)
             self._dragging = True
         else:
-            # Continue dragging
-            from Quartz import kCGEventLeftMouseDragged
             drag = CGEventCreateMouseEvent(None, kCGEventLeftMouseDragged, point, kCGMouseButtonLeft)
             CGEventPost(kCGHIDEventTap, drag)
         self._last_pos = (x, y)
@@ -72,7 +75,6 @@ class MouseController:
 
     def scroll(self, dy):
         """Scroll vertically. Positive dy = scroll down, negative = scroll up."""
-        # CGEvent scroll: positive = scroll up in Quartz, so we invert
         units = int(-dy * 10)
         if units == 0:
             return
@@ -81,16 +83,22 @@ class MouseController:
 
     def swipe_back(self):
         """Simulate browser back (Cmd+[)."""
-        subprocess.run(
-            ["osascript", "-e",
-             'tell application "System Events" to keystroke "[" using command down'],
-            capture_output=True,
-        )
+        try:
+            subprocess.run(
+                ["osascript", "-e",
+                 'tell application "System Events" to keystroke "[" using command down'],
+                capture_output=True, timeout=2,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
 
     def swipe_forward(self):
         """Simulate browser forward (Cmd+])."""
-        subprocess.run(
-            ["osascript", "-e",
-             'tell application "System Events" to keystroke "]" using command down'],
-            capture_output=True,
-        )
+        try:
+            subprocess.run(
+                ["osascript", "-e",
+                 'tell application "System Events" to keystroke "]" using command down'],
+                capture_output=True, timeout=2,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass

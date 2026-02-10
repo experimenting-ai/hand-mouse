@@ -1,8 +1,8 @@
 """One Euro Filter for adaptive jitter smoothing.
 
 Reference: http://cristal.univ-lille.fr/~casiez/1euro/
-Low speed → heavy smoothing (eliminates jitter)
-High speed → light smoothing (reduces lag)
+Low speed -> heavy smoothing (eliminates jitter)
+High speed -> light smoothing (reduces lag)
 """
 
 import math
@@ -22,6 +22,10 @@ class OneEuroFilter:
         return 1.0 / (1.0 + tau / te)
 
     def __call__(self, x, t):
+        # NaN/inf guard: reject bad input, return last good value
+        if math.isnan(x) or math.isinf(x) or math.isnan(t) or math.isinf(t):
+            return self.x_prev if self.x_prev is not None else 0.0
+
         if self.t_prev is None:
             self.x_prev = x
             self.dx_prev = 0.0
@@ -41,6 +45,10 @@ class OneEuroFilter:
         cutoff = self.min_cutoff + self.beta * abs(dx_hat)
         a = self._alpha(cutoff, te)
         x_hat = a * x + (1 - a) * self.x_prev
+
+        # Guard against NaN propagation from arithmetic
+        if math.isnan(x_hat):
+            return self.x_prev
 
         self.x_prev = x_hat
         self.dx_prev = dx_hat
